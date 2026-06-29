@@ -1,0 +1,72 @@
+classDiagram
+    %% PawPal+ final class design (matches pawpal_system.py)
+    %% Ownership: Owner -> Pet -> Task (composition)
+    %% Scheduler consumes tasks/owner and produces a Plan; it owns no data.
+
+    class Task {
+        +str name
+        +int duration
+        +int priority
+        +str category
+        +str fixed_time
+        +bool completed
+        +str frequency
+        +date due_date
+        +is_fixed() bool
+        +mark_complete() Task
+        +summary() str
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +int age
+        +str notes
+        +list~Task~ tasks
+        +add_task(task) void
+        +remove_task(task) void
+        +get_tasks() list~Task~
+        +describe() str
+    }
+
+    class Owner {
+        +str name
+        +int available_minutes
+        +dict preferences
+        +list~Pet~ pets
+        +add_pet(pet) void
+        +remove_pet(pet) void
+        +all_tasks() list~Task~
+    }
+
+    class Plan {
+        +list scheduled_items
+        +list~Task~ skipped_tasks
+        +int total_time_used
+        +str reasoning
+        +explain() str
+        +to_text() str
+    }
+
+    class Scheduler {
+        +generate_plan(tasks, available_minutes, day_start) Plan
+        +plan_for(owner, day_start) Plan
+        +sort_by_time(tasks) list~Task~
+        +filter_by_completion(tasks, completed) list~Task~
+        +filter_by_pet_name(owner, pet_name) list~Task~
+        +detect_conflicts(owner) list~str~
+        -_sort_tasks(tasks) list~Task~
+        -_resolve_conflicts(tasks) list~Task~
+        -_filter_to_budget(tasks, available_minutes) list~Task~
+        -_assign_times(tasks, day_start) list~Task~
+        -_build_reasoning(scheduled_items, conflict_dropped, budget_dropped, available_minutes) str
+    }
+
+    Owner "1" *-- "0..*" Pet : owns
+    Pet "1" *-- "0..*" Task : owns
+    Task ..> Task : spawns next occurrence
+    Scheduler ..> Task : consumes
+    Scheduler ..> Owner : reads
+    Scheduler ..> Plan : produces
+    Owner ..> Task : aggregates

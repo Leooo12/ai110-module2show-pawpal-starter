@@ -74,6 +74,24 @@ def demo_sorting_and_filtering(owner: Owner, scheduler: Scheduler) -> None:
     print_task_list(f"TASKS FOR {pet_name.upper()}", scheduler.sort_by_time(rex_tasks))
 
 
+def demo_priority(owner: Owner, scheduler: Scheduler) -> None:
+    """Show priority-first ordering: High before Medium before Low, then time."""
+    tasks = scheduler.filter_by_completion(owner.all_tasks(), completed=False)
+    ordered = scheduler.sort_by_priority(tasks)
+
+    width = 52
+    print("=" * width)
+    print("  TASKS BY PRIORITY (High -> Low, then time)".ljust(width))
+    print("-" * width)
+    labels = {3: "HIGH  ", 2: "MEDIUM", 1: "LOW   "}
+    for task in ordered:
+        time = task.fixed_time if task.fixed_time else "  --"
+        label = labels.get(task.priority, str(task.priority))
+        print(f"  [{label}]  {time}   {task.name:<18} {task.duration:>3} min")
+    print("=" * width)
+    print()
+
+
 def demo_recurring(owner: Owner) -> None:
     """Show that completing a recurring task auto-creates the next occurrence."""
     rex = owner.pets[0]
@@ -155,17 +173,42 @@ def print_plan(owner: Owner, plan) -> None:
     print("=" * width)
 
 
+def demo_persistence(owner: Owner) -> None:
+    """Save the owner to data.json, reload it, and confirm the round-trip."""
+    path = "data.json"
+    owner.save_to_json(path)
+
+    reloaded = Owner.load_from_json(path)
+
+    width = 52
+    print("=" * width)
+    print("  PERSISTENCE (save -> load data.json)".ljust(width))
+    print("-" * width)
+    print(f"  Saved owner '{owner.name}' to {path}")
+    print(f"  Reloaded owner '{reloaded.name}' with {len(reloaded.pets)} pet(s) "
+          f"and {len(reloaded.all_tasks())} task(s)")
+    print("=" * width)
+    print()
+
+
 def main() -> None:
-    """Build the demo data, show sorting/filtering, then print the plan."""
-    owner = build_owner()
+    """Build the demo data, show sorting/filtering, then print the plan.
+
+    On startup, reuse data.json if it exists so changes persist between runs;
+    otherwise build fresh demo data.
+    """
+    owner = Owner.load_from_json("data.json") or build_owner()
     scheduler = Scheduler()
 
     demo_sorting_and_filtering(owner, scheduler)
+    demo_priority(owner, scheduler)
     demo_recurring(owner)
     demo_conflicts(owner, scheduler)
 
     plan = scheduler.plan_for(owner)
     print_plan(owner, plan)
+
+    demo_persistence(owner)
 
 
 if __name__ == "__main__":

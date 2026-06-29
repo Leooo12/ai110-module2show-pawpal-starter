@@ -50,9 +50,12 @@ if "owner" not in st.session_state:
 
 owner = st.session_state["owner"]
 
+scheduler = Scheduler()
+
 if st.button("Add pet"):
     new_pet = Pet(name=pet_name, species=species)
     owner.add_pet(new_pet)
+    st.success(f"Added {new_pet.name}.")
 
 if owner.pets:
     st.write("Current pets:")
@@ -64,13 +67,15 @@ else:
 st.markdown("### Tasks")
 st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 with col1:
     task_title = st.text_input("Task title", value="Morning walk")
 with col2:
     duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
 with col3:
     priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
+with col4:
+    fixed_time = st.text_input("Fixed time (HH:MM, optional)", value="")
 
 if owner.pets:
     pet_names = [pet.name for pet in owner.pets]
@@ -83,15 +88,32 @@ if owner.pets:
             name=task_title,
             duration=int(duration),
             priority=priority_map[priority],
+            fixed_time=fixed_time.strip() or None,
         )
         selected_pet.add_task(new_task)
+        st.success(f"Added '{new_task.name}' to {selected_pet.name}.")
 
-    if selected_pet.get_tasks():
-        st.write(f"Tasks for {selected_pet.name}:")
-        for task in selected_pet.get_tasks():
-            st.write(f"- {task.summary()}")
+    tasks = selected_pet.get_tasks()
+    if tasks:
+        st.write(f"Tasks for {selected_pet.name} (sorted by time):")
+        priority_labels = {3: "high", 2: "medium", 1: "low"}
+        rows = [
+            {
+                "Time": task.fixed_time or "flexible",
+                "Task": task.name,
+                "Duration (min)": task.duration,
+                "Priority": priority_labels.get(task.priority, task.priority),
+                "Done": "✓" if task.completed else "",
+            }
+            for task in scheduler.sort_by_time(tasks)
+        ]
+        st.table(rows)
     else:
         st.info("No tasks yet for this pet. Add one above.")
+
+    conflicts = scheduler.detect_conflicts(owner)
+    for warning in conflicts:
+        st.warning(warning)
 else:
     st.info("Add a pet first before adding tasks.")
 

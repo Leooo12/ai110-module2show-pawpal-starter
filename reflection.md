@@ -44,7 +44,7 @@ The relationships were composition down the ownership chain (PetOwner → Pet �
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
-One tradeoff is in conflict detection: it warns only when two tasks share the *exact* same scheduled time, rather than detecting when one task's duration overlaps another's. This keeps the algorithm simple and readable — it just groups tasks by their fixed start time and flags any slot with more than one task — and it works well for basic schedule warnings like two tasks both set for 08:30. The cost is that it can miss conflicts caused by duration, such as a 30-minute task at 08:00 running into a task at 08:15. A future improvement would compare each task's start *and* end time to catch overlapping ranges, not just identical start times.
+One tradeoff in the scheduler is its conflict detection strategy. It only warns when two tasks have the exact same scheduled start time, rather than detecting when one task's duration overlaps another. This approach keeps the algorithm simple, readable, and efficient by grouping tasks according to their start time and flagging any time slot containing multiple tasks. It works well for basic schedule warnings, such as two tasks both scheduled for 08:30. However, it may miss conflicts caused by overlapping durations, such as a 30-minute task beginning at 08:00 followed by another task at 08:15. A future improvement would compare each task's start and end times to detect overlapping time ranges instead of only identical start times.
 
 ---
 
@@ -59,6 +59,16 @@ One tradeoff is in conflict detection: it warns only when two tasks share the *e
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+
+**c. AI strategy**
+
+The AI features I found most effective were the ones that let me stay in control of the design rather than hand it off. Having the assistant read my actual files before suggesting anything was the biggest one — it would inspect `pawpal_system.py` and `app.py` and tell me where tasks were displayed or which Scheduler methods existed, instead of guessing. Scoped, "do not edit yet" review prompts were also valuable: I could ask for an analysis (for example, comparing my code against the UML, or proposing a Features list) and decide what to act on before any code changed. Asking it to run `main.py` and use the real output, rather than describe what it imagined the output to be, kept the documentation honest.
+
+There was at least one suggestion I modified to keep the design clean. When wiring the Scheduler into the UI, the assistant offered to also implement the "Generate schedule" button in `app.py`. I chose to keep that change out of scope so the task display work stayed focused, and I kept the README honest about the button still being a placeholder rather than letting the docs claim a feature the UI did not yet have. Keeping the data models free of scheduling logic — Tasks answer questions about themselves, the Scheduler does the planning — was a boundary I held to whenever a suggestion risked blurring it.
+
+Using separate chat sessions for different phases helped me stay organized. Keeping design review, the UI changes, the UML update, and the README/reflection work in distinct conversations meant each session had a clear goal and a manageable amount of context, and it was easier to revisit a specific decision later without scrolling through unrelated work. It also made it natural to finish and verify one phase before opening the next.
+
+The main thing I learned about being the lead architect while using AI is that the assistant is fast at producing options and surfacing details, but the responsibility for the design and for verifying the result stays with me. I had to read every suggested change, decide whether it fit the architecture I wanted, and confirm it actually worked — running the tests, running the CLI, and checking the output myself. The AI accelerated the work, but the judgment about what PawPal+ should be, and the accountability for what shipped, were mine.
 
 ---
 

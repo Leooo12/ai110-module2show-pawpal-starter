@@ -10,6 +10,7 @@ questions about themselves, while the Scheduler turns tasks into a Plan.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Optional
@@ -95,6 +96,38 @@ class Task:
             parts.append(f"@ {self.fixed_time}")
         return " ".join(parts)
 
+    def to_dict(self) -> dict:
+        """Return a JSON-serializable dict of this task.
+
+        due_date is a datetime.date (not JSON-native), so it is stored as an
+        ISO 'YYYY-MM-DD' string, or None when unset.
+        """
+        return {
+            "name": self.name,
+            "duration": self.duration,
+            "priority": self.priority,
+            "category": self.category,
+            "fixed_time": self.fixed_time,
+            "completed": self.completed,
+            "frequency": self.frequency,
+            "due_date": self.due_date.isoformat() if self.due_date else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Task":
+        """Rebuild a Task from a dict produced by to_dict."""
+        due_date = data.get("due_date")
+        return cls(
+            name=data["name"],
+            duration=data["duration"],
+            priority=data["priority"],
+            category=data.get("category"),
+            fixed_time=data.get("fixed_time"),
+            completed=data.get("completed", False),
+            frequency=data.get("frequency"),
+            due_date=date.fromisoformat(due_date) if due_date else None,
+        )
+
 
 @dataclass
 class Pet:
@@ -140,6 +173,29 @@ class Pet:
             summary += f" — {self.notes}"
         return summary
 
+    def to_dict(self) -> dict:
+        """Return a JSON-serializable dict of this pet and its tasks."""
+        return {
+            "name": self.name,
+            "species": self.species,
+            "breed": self.breed,
+            "age": self.age,
+            "notes": self.notes,
+            "tasks": [task.to_dict() for task in self.tasks],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Pet":
+        """Rebuild a Pet (and its Tasks) from a dict produced by to_dict."""
+        return cls(
+            name=data["name"],
+            species=data["species"],
+            breed=data.get("breed"),
+            age=data.get("age"),
+            notes=data.get("notes"),
+            tasks=[Task.from_dict(t) for t in data.get("tasks", [])],
+        )
+
 
 @dataclass
 class Owner:
@@ -171,6 +227,44 @@ class Owner:
         for pet in self.pets:
             tasks.extend(pet.get_tasks())
         return tasks
+
+    def to_dict(self) -> dict:
+        """Return a JSON-serializable dict of this owner and all nested data."""
+        return {
+            "name": self.name,
+            "available_minutes": self.available_minutes,
+            "preferences": self.preferences,
+            "pets": [pet.to_dict() for pet in self.pets],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Owner":
+        """Rebuild an Owner (with Pets and Tasks) from a dict produced by to_dict."""
+        return cls(
+            name=data["name"],
+            available_minutes=data["available_minutes"],
+            preferences=data.get("preferences", {}),
+            pets=[Pet.from_dict(p) for p in data.get("pets", [])],
+        )
+
+    def save_to_json(self, path: str = "data.json") -> None:
+        """Write this owner (with pets and tasks) to a JSON file."""
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def load_from_json(cls, path: str = "data.json") -> Optional["Owner"]:
+        """Load an Owner from a JSON file, or return None if it doesn't exist.
+
+        Returning None on a missing file lets first-run callers fall back to
+        building fresh demo data instead of crashing.
+        """
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return None
+        return cls.from_dict(data)
 
 
 @dataclass
@@ -234,8 +328,8 @@ class Scheduler:
         resolved = self._resolve_conflicts(tasks)
         conflict_dropped = [t for t in tasks if t not in resolved]
 
-        # 2. Order by priority, then 3. keep only what fits the time budget.
-        ordered = self._sort_tasks(resolved)
+        # 2. Order by priority (then time), then 3. keep what fits the budget.
+        ordered = self.sort_by_priority(resolved)
         kept = self._filter_to_budget(ordered, available_minutes)
         budget_dropped = [t for t in ordered if t not in kept]
 
@@ -274,6 +368,24 @@ class Scheduler:
         return sorted(
             tasks,
             key=lambda task: (
+                task.fixed_time is None,
+                _to_minutes(task.fixed_time) if task.fixed_time is not None else 0,
+            ),
+        )
+
+    def sort_by_priority(self, tasks: list[Task]) -> list[Task]:
+        """Return a new list ordered by priority (desc), then by time.
+
+        High priority comes before Medium, Medium before Low. Within the same
+        priority, tasks fall into chronological order (the same rule as
+        sort_by_time): fixed-time tasks first ascending by their 'HH:MM' time,
+        then flexible (no-time) tasks. The input list is not mutated, and the
+        sort is stable so equal priority + equal time preserves original order.
+        """
+        return sorted(
+            tasks,
+            key=lambda task: (
+                -task.priority,
                 task.fixed_time is None,
                 _to_minutes(task.fixed_time) if task.fixed_time is not None else 0,
             ),
@@ -325,10 +437,6 @@ class Scheduler:
                 names = ", ".join(f"{pet}'s '{task}'" for pet, task in entries)
                 warnings.append(f"Conflict at {time}: {names}")
         return warnings
-
-    def _sort_tasks(self, tasks: list[Task]) -> list[Task]:
-        """Order tasks by priority (desc), tie-breaking by duration."""
-        return sorted(tasks, key=lambda t: (-t.priority, t.duration))
 
     def _resolve_conflicts(self, tasks: list[Task]) -> list[Task]:
         """Resolve overlaps among fixed-time tasks only.
