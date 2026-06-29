@@ -30,6 +30,8 @@ The relationships were composition down the ownership chain (PetOwner → Pet �
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
+During implementation, I changed the ownership of tasks. Initially, the Scheduler stored the task list directly. After reviewing the design, I moved task ownership into the Pet class so that each pet manages its own care activities. The Scheduler now retrieves tasks from the Owner and Pets rather than storing them itself. This better follows object-oriented principles by separating data ownership from scheduling logic.
+
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
@@ -37,7 +39,9 @@ The relationships were composition down the ownership chain (PetOwner → Pet �
 **a. Constraints and priorities**
 
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
+The scheduler considers several constraints when generating schedules. Tasks are first ordered by priority and then by scheduled time. Completed tasks can be filtered out, recurring tasks automatically generate their next occurrence, and conflict detection identifies tasks that occur at the same scheduled time.
 - How did you decide which constraints mattered most?
+I prioritized task priority and scheduled time because they directly affect the order in which pet care activities should be completed. Recurring tasks were included to reduce repetitive user input, while conflict detection provides warnings without preventing scheduling. This keeps the scheduler simple while still being useful for daily pet care.
 
 **b. Tradeoffs**
 
@@ -53,12 +57,28 @@ One tradeoff in the scheduler is its conflict detection strategy. It only warns 
 **a. How you used AI**
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
 
+- What kinds of prompts or questions were most helpful?
+"Review my design before making changes","Do not edit yet. Inspect my current implementation.""Make only the minimal changes necessary." helped preserve my architecture
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
+It suggested
+-extra helper classes
+-unnecessary abstractions
+-storing tasks in Scheduler
+
+We discussed- No. - I chose not to accept
+
+Tasks belong to Pet.
+
+Scheduler should only process them.
+
 - How did you evaluate or verify what the AI suggested?
+
+I treated every suggestion as a proposal to check, not an answer to accept. Before letting the assistant touch any code, I used scoped "do not edit yet" prompts — for example, asking it to list which tests already existed in `tests/test_pawpal.py`, which were missing, and whether the tests matched my actual constructors and method names. I explicitly told it not to invent method names, and I confirmed the ones it referenced (`Scheduler.sort_by_time`, `detect_conflicts`, `Task.mark_complete`, `Pet.add_task`) were real before trusting the review. That same habit is how I caught the design suggestions I rejected above — once I checked them against my ownership chain, storing tasks in the Scheduler and adding extra abstractions clearly broke the boundary I wanted.
+
+The main way I verified behavior was by running things and reading the actual output rather than the assistant's description of it. After the tests were added I ran `python -m pytest` myself and read the exact result (`5 passed`), and I had the README use that real output instead of a guessed-at sample — the same way the CLI "Sample Output" came from actually running `main.py`. I also reviewed the `git diff` summary before committing, so I could confirm the change was limited to tests and docs and that no production logic had been quietly rewritten. My rule when a test could fail was to first explain *why* it failed and whether the bug was in the test or in `pawpal_system.py` before changing anything — so a green suite meant the code behaved, not that a test had been bent to pass.
 
 **c. AI strategy**
 
@@ -79,10 +99,31 @@ The main thing I learned about being the lead architect while using AI is that t
 - What behaviors did you test?
 - Why were these tests important?
 
+I focused the test suite (`tests/test_pawpal.py`) on the behaviors that define what PawPal+ actually does, rather than on trivial getters:
+
+- **Task lifecycle** — a task starts incomplete, `mark_complete()` marks it done, and `Pet.add_task()` adds it to the pet's list.
+- **Sorting correctness** — `Scheduler.sort_by_time()` takes tasks added out of order and returns them in chronological order, with flexible (no-time) tasks last.
+- **Priority scheduling** — `sort_by_priority()` orders High → Medium → Low and breaks ties by time, and `generate_plan()` keeps the higher-priority task when the budget only fits one.
+- **Recurrence logic** — completing a `"daily"` task returns a new task with its `due_date` rolled forward one day.
+- **Conflict detection** — `detect_conflicts()` returns a warning when two tasks share the same scheduled time.
+- **Persistence round-trips** — `Task`/`Owner` survive a `to_dict`/`from_dict` and `save_to_json`/`load_from_json` cycle, and loading a missing file returns `None` instead of crashing.
+
+These mattered because they are exactly the places where the app's value lives and where a bug would be silent rather than obvious. Sorting, priority selection, and conflict detection are the scheduling decisions a user actually relies on, so a regression there would quietly produce a wrong plan. Recurrence and persistence touch data that carries across days and across runs, where a subtle error (a date that doesn't advance, a task that loads back as a plain dict) would corrupt state without throwing. Testing the real constructors and method names — not invented ones — also meant the tests double as a check that the public interface stays stable.
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
+
+I'm reasonably confident — about 4 out of 5 — that the scheduler works correctly for the cases it's meant to handle. The behaviors that drive a real plan (sorting by time, priority selection under a budget, conflict detection, recurrence) all have passing tests against the real constructors and method names, and I verified the result by running `python -m pytest` and `main.py` myself rather than trusting a described output. I'm holding back from full confidence because the tests cover the expected paths more thoroughly than the boundaries.
+
+If I had more time, the edge cases I'd test next are:
+
+- **Pets with no tasks** — an owner or pet with an empty task list should produce an empty plan and no conflict warnings, not an error.
+- **Duplicate fixed times in `generate_plan()`** — `detect_conflicts()` only *warns* about a shared time, while `generate_plan()` actually *drops* the lower-priority task; I'd test that scheduling path directly to confirm the right task is kept and the other is skipped.
+- **Weekly recurrence** — I tested the `"daily"` branch of `mark_complete()`; the `"weekly"` branch (and the non-recurring case that should return `None`) is still unverified.
+- **Budget edge values** — zero available minutes, or a task whose duration exactly equals the remaining budget, to confirm the boundary comparison behaves.
+- **Overlapping durations** — the conflict check only compares start times, so a task running long into another's slot isn't flagged; I'd add a test to document that limitation (and drive the future overlap-aware version noted in section 2b).
 
 ---
 
