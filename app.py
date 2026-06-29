@@ -1,5 +1,7 @@
 import streamlit as st
 
+from pawpal_system import Owner, Pet, Task, Scheduler
+
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
 st.title("🐾 PawPal+")
@@ -43,11 +45,24 @@ owner_name = st.text_input("Owner name", value="Jordan")
 pet_name = st.text_input("Pet name", value="Mochi")
 species = st.selectbox("Species", ["dog", "cat", "other"])
 
+if "owner" not in st.session_state:
+    st.session_state["owner"] = Owner(name=owner_name, available_minutes=90)
+
+owner = st.session_state["owner"]
+
+if st.button("Add pet"):
+    new_pet = Pet(name=pet_name, species=species)
+    owner.add_pet(new_pet)
+
+if owner.pets:
+    st.write("Current pets:")
+    for pet in owner.pets:
+        st.write(f"- {pet.describe()}")
+else:
+    st.info("No pets yet. Add one above.")
+
 st.markdown("### Tasks")
 st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
-
-if "tasks" not in st.session_state:
-    st.session_state.tasks = []
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -57,16 +72,28 @@ with col2:
 with col3:
     priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
 
-if st.button("Add task"):
-    st.session_state.tasks.append(
-        {"title": task_title, "duration_minutes": int(duration), "priority": priority}
-    )
+if owner.pets:
+    pet_names = [pet.name for pet in owner.pets]
+    selected_pet_name = st.selectbox("Assign to pet", pet_names)
+    selected_pet = next(pet for pet in owner.pets if pet.name == selected_pet_name)
 
-if st.session_state.tasks:
-    st.write("Current tasks:")
-    st.table(st.session_state.tasks)
+    priority_map = {"low": 1, "medium": 2, "high": 3}
+    if st.button("Add task"):
+        new_task = Task(
+            name=task_title,
+            duration=int(duration),
+            priority=priority_map[priority],
+        )
+        selected_pet.add_task(new_task)
+
+    if selected_pet.get_tasks():
+        st.write(f"Tasks for {selected_pet.name}:")
+        for task in selected_pet.get_tasks():
+            st.write(f"- {task.summary()}")
+    else:
+        st.info("No tasks yet for this pet. Add one above.")
 else:
-    st.info("No tasks yet. Add one above.")
+    st.info("Add a pet first before adding tasks.")
 
 st.divider()
 

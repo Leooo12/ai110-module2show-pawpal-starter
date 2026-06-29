@@ -44,14 +44,24 @@ pip install -r requirements.txt
 
 ## 🖥️ Sample Output
 
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
+Running `python main.py` produces the following CLI output:
 
 ```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
+====================================================
+  TODAY'S SCHEDULE
+  Owner: Sam   |   Budget: 90 min
+====================================================
+  08:00   Morning walk        30 min   (walk)
+  08:30   Breakfast           10 min   (feeding)
+  08:40   Feed                10 min   (feeding)
+  18:00   Evening walk        25 min   (walk)
+  18:25   Brush coat          15 min   (grooming)
+----------------------------------------------------
+  Time used: 90 / 90 min
+
+  Why this plan:
+    Scheduled 5 task(s) using 90 of 90 available minutes.
+====================================================
 ```
 
 ## 🧪 Testing PawPal+
@@ -72,14 +82,14 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
+PawPal+ adds a small algorithmic layer on top of the basic planner:
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `Scheduler.sort_by_time()` | Returns a new list ordered by `fixed_time`; flexible (no-time) tasks go last. |
+| Filtering | `Scheduler.filter_by_completion()`, `Scheduler.filter_by_pet_name()` | Filter tasks by completion status, or by a pet's name via the `Owner → Pet → tasks` chain. |
+| Conflict detection | `Scheduler.detect_conflicts()` | Returns warning strings for tasks sharing the same `fixed_time`; read-only, never raises. |
+| Recurring tasks | `Task.mark_complete()` (with `Task.frequency` and `Task.due_date`) | Completing a `"daily"`/`"weekly"` task returns the next occurrence with its `due_date` rolled forward. |
 
 ## 📸 Demo Walkthrough
 

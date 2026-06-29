@@ -1,15 +1,63 @@
 classDiagram
-    %% Replace the placeholders below with your actual classes, attributes, methods, and relationships.
-    %% Keep this file updated so it matches your final implementation.
+    %% PawPal+ class design
+    %% Ownership: Owner -> Pet -> Task (composition)
+    %% Scheduler consumes tasks and produces a Plan; it owns no data.
 
-    class ClassName {
-        +type attribute
-        +method() returnType
+    class Owner {
+        +str name
+        +int available_minutes
+        +dict preferences
+        +list~Pet~ pets
+        +add_pet(pet) void
+        +remove_pet(pet) void
+        +all_tasks() list~Task~
     }
 
-    class AnotherClass {
-        +type attribute
-        +method() returnType
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +int age
+        +str notes
+        +list~Task~ tasks
+        +add_task(task) void
+        +remove_task(task) void
+        +get_tasks() list~Task~
+        +describe() str
     }
 
-    ClassName --> AnotherClass : relationship
+    class Task {
+        +str name
+        +int duration
+        +int priority
+        +str category
+        +str fixed_time
+        +is_fixed() bool
+        +summary() str
+    }
+
+    class Scheduler {
+        +generate_plan(tasks, available_minutes, day_start) Plan
+        +plan_for(owner, day_start) Plan
+        -sort_tasks(tasks) list~Task~
+        -resolve_conflicts(tasks) list~Task~
+        -filter_to_budget(tasks, available_minutes) list~Task~
+        -assign_times(tasks, day_start) list~Task~
+        -build_reasoning(scheduled_items, conflict_dropped, budget_dropped, available_minutes) str
+    }
+
+    class Plan {
+        +list scheduled_items
+        +list~Task~ skipped_tasks
+        +int total_time_used
+        +str reasoning
+        +explain() str
+        +to_text() str
+    }
+
+    Owner "1" *-- "0..*" Pet : owns
+    Pet "1" *-- "0..*" Task : owns
+    Scheduler ..> Task : consumes
+    Scheduler ..> Plan : produces
+    Scheduler ..> Owner : reads
+    Owner ..> Task : aggregates
