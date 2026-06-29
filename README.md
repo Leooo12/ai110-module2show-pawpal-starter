@@ -66,19 +66,41 @@ Running `python main.py` produces the following CLI output:
 
 ## 🧪 Testing PawPal+
 
+Run the full test suite from the project root:
+
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+### What the tests cover
+
+The suite in `tests/test_pawpal.py` verifies the core scheduling behaviors:
+
+- **Task completion** — a new task starts incomplete and `mark_complete()` marks it done.
+- **Task addition** — `Pet.add_task()` adds a task to a pet's list.
+- **Recurrence logic** — completing a `"daily"` task returns a new task with its `due_date` rolled forward one day.
+- **Sorting correctness** — `Scheduler.sort_by_time()` returns out-of-order tasks in chronological order.
+- **Conflict detection** — `Scheduler.detect_conflicts()` warns when two tasks share the same scheduled time.
+
+### Successful output
 
 ```
-# Paste your pytest output here
+============================= test session starts ==============================
+platform darwin -- Python 3.10.15, pytest-7.1.2, pluggy-1.0.0
+rootdir: /Users/leo/ai110-module2show-pawpal-starter
+plugins: anyio-4.13.0
+collected 5 items
+
+tests/test_pawpal.py .....                                               [100%]
+
+============================== 5 passed in 0.01s ===============================
 ```
+
+### Confidence Level
+
+⭐⭐⭐⭐☆ (4/5)
+
+All 5 tests pass and cover the most important scheduling behaviors (sorting, recurrence, conflict detection, task lifecycle). Held back from 5/5 because some edge cases remain untested — e.g. pets with no tasks, duplicate-time handling during `generate_plan()`, and weekly recurrence.
 
 ## 📐 Smarter Scheduling
 
